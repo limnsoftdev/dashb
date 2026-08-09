@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Leads · LIMN</title>
+<meta name="description" content="Live lead dashboard pulled from Google Sheets." />
+
+<!-- iOS home-screen / PWA-style meta -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Leads" />
+<meta name="theme-color" content="#0a0906" />
+<link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0906'/%3E%3Ctext x='32' y='45' font-family='Georgia,serif' font-weight='700' font-size='34' fill='%23f6f2e9' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E" />
+<link id="appleIcon" rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230a0906'/%3E%3Ctext x='90' y='125' font-family='Georgia,serif' font-weight='700' font-size='96' fill='%23f6f2e9' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --black: #0a0906;
+    --black-elevated: #15130e;
+    --white: #f6f2e9;
+    --gray: #9c9585;
+    --subtle: #18160f;
+    --surface: rgba(255,255,255,0.045);
+    --surface-hover: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.20);
+    --accent: #ffffff;
+    --accent-2: #cbc7bc;
+    --accent-glow: rgba(255,255,255,0.16);
+    --danger: #c2685a;
+    --success: #8fae7b;
+    --success-glow: rgba(143,174,123,0.16);
+    --radius-lg: 12px;
+    --radius-md: 10px;
+    --radius-sm: 6px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --col-phone: 148px;
+    --col-timeline: 128px;
+    --col-besttime: 148px;
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 400;
+    line-height: 1.5;
+    font-size: 16px;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: contain;
+  }
+
+  ::selection { background: var(--accent-glow); color: var(--white); }
+
+  button, input, select { font: inherit; color: inherit; }
+  button { touch-action: manipulation; }
+
+  a { color: inherit; }
+
+  h1, h2, .brand { font-family: 'Syne', sans-serif; }
+
+  svg { display: block; }
+
+  /* ─── LAYOUT ─── */
+  #app { max-width: 900px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+
+  header.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(10,9,6,0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: calc(0.9rem + var(--safe-top)) 1rem 0.8rem;
+  }
+
+  .topbar-row1 { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.85rem; }
+
+  .brand { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.01em; }
+  .brand span { color: var(--gray); font-weight: 500; font-family: 'Inter', sans-serif; font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-top: 0.1rem; }
+
+  .icon-btn {
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    background: var(--surface);
+    cursor: pointer;
+    transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease);
+    flex-shrink: 0;
+  }
+  .icon-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+  .icon-btn:active { transform: scale(0.94); }
+  .icon-btn svg { width: 18px; height: 18px; stroke: var(--white); }
+  .icon-btn.spinning svg { animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .search-wrap { position: relative; margin-bottom: 0.65rem; }
+  .search-wrap svg { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; stroke: var(--gray); pointer-events: none; }
+  #searchInput {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.65rem 0.9rem 0.65rem 2.4rem;
+    color: var(--white);
+    font-size: 16px;
+    transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+  }
+  #searchInput::placeholder { color: var(--gray); }
+  #searchInput:focus { outline: none; border-color: var(--accent-2); background: var(--surface-hover); }
+
+  .filters { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+
+  .chip-group { display: flex; gap: 0.4rem; }
+  .chip {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--gray);
+    padding: 0.4rem 0.8rem;
+    border-radius: 100px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    min-height: 32px;
+  }
+  .chip:hover { border-color: var(--border-strong); color: var(--white); }
+  .chip.active { background: var(--accent); color: var(--black); border-color: var(--accent); font-weight: 600; }
+
+  #sortSelect {
+    margin-left: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.78rem;
+    color: var(--white);
+    cursor: pointer;
+  }
+  #sortSelect:focus { outline: none; border-color: var(--accent-2); }
+
+  .meta-row { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.7rem; font-size: 0.72rem; color: var(--gray); }
+
+  /* ─── LIST ─── */
+  main { flex: 1; padding: 0.75rem 1rem calc(2rem + var(--safe-bottom)); }
+
+  .list-head {
+    display: none;
+    padding: 0 0.9rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray);
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .list-head .col-status { width: 20px; }
+  .list-head .col-name { flex: 1; }
+  .list-head .col-phone { width: var(--col-phone); }
+  .list-head .col-timeline { width: var(--col-timeline); }
+  .list-head .col-besttime { width: var(--col-besttime); }
+  .list-head .col-chevron { width: 18px; }
+  .list-head button.sortable { background: none; border: none; color: inherit; text-transform: inherit; letter-spacing: inherit; font-size: inherit; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; padding: 0; }
+  .list-head button.sortable:hover { color: var(--white); }
+  .list-head button.sortable svg { width: 10px; height: 10px; opacity: 0.5; }
+  .list-head button.sortable[aria-sort]:not([aria-sort="none"]) svg { opacity: 1; }
+
+  #leadsList { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .lead {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    overflow: hidden;
+    transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+  }
+  .lead:has(.lead-toggle:hover) { background: var(--surface-hover); }
+  .lead[data-open="true"] { border-color: var(--border-strong); }
+
+  .lead-row { display: flex; flex-direction: column; padding: 0.7rem 0.9rem; gap: 0.4rem; }
+
+  .lead-toggle {
+    display: flex; align-items: center; gap: 0.7rem;
+    background: none; border: none; text-align: left;
+    width: 100%; cursor: pointer; padding: 0.15rem 0;
+    min-height: 34px;
+  }
+
+  .status-dot {
+    width: 20px; height: 20px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+  }
+  .status-dot[data-q="true"] { background: var(--success-glow); color: var(--success); }
+  .status-dot[data-q="false"] { background: rgba(255,255,255,0.06); color: var(--gray); }
+  .status-dot svg { width: 12px; height: 12px; stroke-width: 3; }
+
+  .lead-name { flex: 1; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.98rem; letter-spacing: 0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .lead-chevron { width: 18px; height: 18px; flex-shrink: 0; stroke: var(--gray); transition: transform 0.3s var(--ease); }
+  .lead[data-open="true"] .lead-chevron { transform: rotate(180deg); stroke: var(--white); }
+
+  .lead-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding-left: 1.9rem; font-size: 0.82rem; color: var(--gray); font-variant-numeric: tabular-nums; }
+  .lead-meta .meta-sep { opacity: 0.5; }
+  .lead-phone { color: var(--accent-2); text-decoration: none; padding: 0.15rem 0; }
+  .lead-phone:hover { text-decoration: underline; }
+  .lead-meta .empty { opacity: 0.5; font-style: italic; }
+
+  /* accordion */
+  .lead-detail { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s var(--ease); }
+  .lead-detail-inner { overflow: hidden; min-height: 0; }
+  .lead[data-open="true"] .lead-detail { grid-template-rows: 1fr; }
+
+  .lead-detail-content { padding: 0.2rem 0.9rem 1rem 1.9rem; border-top: 1px solid var(--border); margin-top: 0.5rem; padding-top: 0.9rem; }
+
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem 1rem; margin-bottom: 0.9rem; }
+  .detail-item .detail-label { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray); margin-bottom: 0.2rem; }
+  .detail-item .detail-value { font-size: 0.88rem; }
+  .detail-item .detail-value.empty { color: var(--gray); font-style: italic; }
+
+  .call-summary { margin-bottom: 1rem; }
+  .call-summary .detail-label { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray); margin-bottom: 0.35rem; }
+  .call-summary p { font-size: 0.9rem; line-height: 1.65; color: var(--white); white-space: pre-wrap; }
+  .call-summary p.empty { color: var(--gray); font-style: italic; }
+
+  .call-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--black); font-weight: 600; font-size: 0.85rem;
+    padding: 0.55rem 1.1rem; border-radius: 100px; text-decoration: none;
+    min-height: 40px;
+    transition: box-shadow 0.25s var(--ease), transform 0.25s var(--ease);
+  }
+  .call-btn:hover { box-shadow: 0 4px 20px var(--accent-glow); transform: translateY(-1px); }
+  .call-btn svg { width: 15px; height: 15px; stroke-width: 2; }
+
+  /* ─── STATES ─── */
+  .state-block { text-align: center; padding: 3rem 1.5rem; color: var(--gray); }
+  .state-block svg { width: 32px; height: 32px; margin: 0 auto 0.9rem; stroke: var(--gray); }
+  .state-block h2 { font-size: 1rem; color: var(--white); margin-bottom: 0.4rem; font-weight: 600; }
+  .state-block p { font-size: 0.85rem; line-height: 1.6; max-width: 34ch; margin: 0 auto; }
+  .retry-btn {
+    margin-top: 1.1rem; background: var(--surface); border: 1px solid var(--border-strong);
+    color: var(--white); padding: 0.55rem 1.2rem; border-radius: 100px; cursor: pointer;
+    font-size: 0.85rem; font-weight: 500; min-height: 40px;
+  }
+  .retry-btn:hover { background: var(--surface-hover); }
+
+  .skeleton-card { height: 62px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); position: relative; overflow: hidden; }
+  .skeleton-card::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  #skeletonState { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  /* ─── DESKTOP / WIDE ─── */
+  @media (min-width: 720px) {
+    .list-head { display: flex; }
+    .lead-row { flex-direction: row; align-items: center; padding: 0.55rem 0.9rem; gap: 0.9rem; }
+    .lead-toggle { width: auto; flex: 1; min-width: 0; }
+    .lead-meta {
+      padding-left: 0; flex-wrap: nowrap; font-size: 0.85rem;
+      display: grid; grid-template-columns: var(--col-phone) var(--col-timeline) var(--col-besttime);
+      gap: 0.9rem; align-items: center;
+    }
+    .lead-meta .meta-sep { display: none; }
+    .lead-meta .lead-timeline, .lead-meta .lead-besttime { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lead-detail-content { padding-left: 0.9rem; }
+    .detail-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-row1">
+      <div class="brand">LIMN<span>Leads</span></div>
+      <button id="refreshBtn" class="icon-btn" aria-label="Refresh leads">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+      </button>
+    </div>
+
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="searchInput" type="search" placeholder="Search business name…" aria-label="Search leads by business name" autocomplete="off" />
+    </div>
+
+    <div class="filters">
+      <div class="chip-group" role="group" aria-label="Filter by qualification">
+        <button class="chip active" data-filter="all">All</button>
+        <button class="chip" data-filter="qualified">Qualified</button>
+        <button class="chip" data-filter="unqualified">Incomplete</button>
+      </div>
+      <select id="sortSelect" aria-label="Sort leads">
+        <option value="name-asc">Name A–Z</option>
+        <option value="name-desc">Name Z–A</option>
+        <option value="qualified-first">Qualified first</option>
+        <option value="timeline">Timeline</option>
+      </select>
+    </div>
+
+    <div class="meta-row">
+      <span id="countSummary">Loading…</span>
+      <span id="lastUpdated"></span>
+    </div>
+  </header>
+
+  <main>
+    <div class="list-head" aria-hidden="true">
+      <span class="col-status"></span>
+      <span class="col-name">
+        <button class="sortable" data-sort="name-asc" aria-sort="none">Business</button>
+      </span>
+      <span class="col-phone">Phone</span>
+      <span class="col-timeline">
+        <button class="sortable" data-sort="timeline" aria-sort="none">Timeline</button>
+      </span>
+      <span class="col-besttime">Best Time</span>
+      <span class="col-chevron"></span>
+    </div>
+
+    <div id="skeletonState">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+
+    <div id="leadsList" hidden></div>
+
+    <div id="emptyState" class="state-block" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <h2>No leads found</h2>
+      <p>Try a different search or filter.</p>
+    </div>
+
+    <div id="errorState" class="state-block" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+      <h2>Couldn't load leads</h2>
+      <p id="errorMessage">Something went wrong fetching the sheet.</p>
+      <button class="retry-btn" id="retryBtn">Try again</button>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var SHEET_ID = '1NqfazF8ryvyNUSCuHY3ONUSG6DvNimc1eUCVtKLaHMU';
+  var CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv';
+  var AUTO_REFRESH_STALE_MS = 60000;
+
+  var state = {
+    leads: [],
+    searchTerm: '',
+    filter: 'all',
+    sort: 'name-asc',
+    openIds: new Set(),
+    lastLoaded: null,
+    loading: true
+  };
+
+  var els = {
+    searchInput: document.getElementById('searchInput'),
+    sortSelect: document.getElementById('sortSelect'),
+    refreshBtn: document.getElementById('refreshBtn'),
+    retryBtn: document.getElementById('retryBtn'),
+    leadsList: document.getElementById('leadsList'),
+    skeletonState: document.getElementById('skeletonState'),
+    emptyState: document.getElementById('emptyState'),
+    errorState: document.getElementById('errorState'),
+    errorMessage: document.getElementById('errorMessage'),
+    countSummary: document.getElementById('countSummary'),
+    lastUpdated: document.getElementById('lastUpdated'),
+    chips: Array.prototype.slice.call(document.querySelectorAll('.chip')),
+    headSortBtns: Array.prototype.slice.call(document.querySelectorAll('.list-head .sortable'))
+  };
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ─── CSV parsing (handles quoted fields, embedded commas/newlines) ───
+  function parseCSV(text) {
+    var rows = [];
+    var row = [];
+    var field = '';
+    var inQuotes = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else { inQuotes = false; }
+        } else {
+          field += c;
+        }
+      } else if (c === '"') {
+        inQuotes = true;
+      } else if (c === ',') {
+        row.push(field); field = '';
+      } else if (c === '\r') {
+        // skip
+      } else if (c === '\n') {
+        row.push(field); rows.push(row); row = []; field = '';
+      } else {
+        field += c;
+      }
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows.filter(function (r) { return !(r.length === 1 && r[0] === ''); });
+  }
+
+  var COLUMN_MAP = {
+    'business name': 'name',
+    'phone': 'phone',
+    'budget': 'budget',
+    'authority': 'authority',
+    'need': 'need',
+    'timeline': 'timeline',
+    'best time to call': 'bestTime',
+    'call summary': 'summary'
+  };
+
+  function rowsToLeads(rows) {
+    if (!rows.length) return [];
+    var header = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+    var idx = {};
+    header.forEach(function (h, i) { if (COLUMN_MAP[h]) idx[COLUMN_MAP[h]] = i; });
+    if (idx.name === undefined) throw new Error('BAD_FORMAT');
+
+    return rows.slice(1)
+      .filter(function (r) { return r.some(function (c) { return c.trim() !== ''; }); })
+      .map(function (r, i) {
+        function get(key) { return idx[key] !== undefined ? (r[idx[key]] || '').trim() : ''; }
+        var name = get('name');
+        var budget = get('budget'), authority = get('authority'), need = get('need'), timeline = get('timeline');
+        return {
+          id: 'lead-' + i,
+          name: name || 'Unnamed lead',
+          phone: get('phone'),
+          budget: budget,
+          authority: authority,
+          need: need,
+          timeline: timeline,
+          bestTime: get('bestTime'),
+          summary: get('summary'),
+          qualified: !!(budget && authority && need && timeline)
+        };
+      });
+  }
+
+  function telHref(phone) {
+    var digits = phone.replace(/[^\d+]/g, '');
+    return 'tel:' + digits;
+  }
+
+  // ─── Fetch ───
+  function loadLeads() {
+    state.loading = true;
+    toggleStates('loading');
+    fetch(CSV_URL, { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP_' + res.status);
+        return res.text();
+      })
+      .then(function (text) {
+        if (/^\s*<(!doctype|html)/i.test(text)) throw new Error('NOT_PUBLIC');
+        var rows = parseCSV(text);
+        var leads = rowsToLeads(rows);
+        state.leads = leads;
+        state.lastLoaded = new Date();
+        state.loading = false;
+        toggleStates(leads.length ? 'ready' : 'empty-source');
+        render();
+        updateLastUpdated();
+      })
+      .catch(function (err) {
+        state.loading = false;
+        showError(err);
+      });
+  }
+
+  function showError(err) {
+    var msg = 'Something went wrong fetching the sheet.';
+    if (err && err.message === 'NOT_PUBLIC') {
+      msg = "This sheet isn't publicly viewable. In Google Sheets, set sharing to “Anyone with the link – Viewer” and reload.";
+    } else if (err && /^HTTP_/.test(err.message)) {
+      msg = 'The sheet request failed (' + err.message.replace('HTTP_', 'status ') + '). Check the sheet ID and try again.';
+    } else if (err && err.message === 'BAD_FORMAT') {
+      msg = "Couldn't find a “Business Name” column. Check the sheet's header row matches expectations.";
+    } else if (!navigator.onLine) {
+      msg = "You're offline. Reconnect and try again.";
+    }
+    els.errorMessage.textContent = msg;
+    toggleStates('error');
+  }
+
+  function toggleStates(mode) {
+    els.skeletonState.hidden = mode !== 'loading';
+    els.errorState.hidden = mode !== 'error';
+    els.leadsList.hidden = !(mode === 'ready' || mode === 'filtered-empty');
+    els.emptyState.hidden = mode !== 'empty-source' && mode !== 'filtered-empty';
+    if (mode === 'empty-source') {
+      els.emptyState.querySelector('h2').textContent = 'No leads yet';
+      els.emptyState.querySelector('p').textContent = 'The sheet is connected but has no rows.';
+    }
+  }
+
+  // ─── Filtering / sorting ───
+  var sortFns = {
+    'name-asc': function (a, b) { return a.name.localeCompare(b.name); },
+    'name-desc': function (a, b) { return b.name.localeCompare(a.name); },
+    'qualified-first': function (a, b) { return (b.qualified - a.qualified) || a.name.localeCompare(b.name); },
+    'timeline': function (a, b) { return (a.timeline || '￿').localeCompare(b.timeline || '￿'); }
+  };
+
+  function getVisibleLeads() {
+    var term = state.searchTerm.trim().toLowerCase();
+    var list = state.leads.filter(function (l) {
+      if (term && l.name.toLowerCase().indexOf(term) === -1) return false;
+      if (state.filter === 'qualified' && !l.qualified) return false;
+      if (state.filter === 'unqualified' && l.qualified) return false;
+      return true;
+    });
+    list.sort(sortFns[state.sort]);
+    return list;
+  }
+
+  // ─── Render ───
+  function leadRowHtml(l) {
+    var open = state.openIds.has(l.id);
+    var qIcon = l.qualified
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>';
+
+    function val(v) { return v ? escapeHtml(v) : '<span class="empty">—</span>'; }
+
+    return (
+      '<article class="lead" data-open="' + open + '">' +
+        '<div class="lead-row">' +
+          '<button class="lead-toggle" aria-expanded="' + open + '" aria-controls="detail-' + l.id + '" data-id="' + l.id + '">' +
+            '<span class="status-dot" data-q="' + l.qualified + '" title="' + (l.qualified ? 'Qualified' : 'Incomplete') + '">' + qIcon + '</span>' +
+            '<span class="lead-name">' + escapeHtml(l.name) + '</span>' +
+            '<svg class="lead-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><path d="m6 9 6 6 6-6"/></svg>' +
+          '</button>' +
+          '<div class="lead-meta">' +
+            (l.phone
+              ? '<a class="lead-phone" href="' + telHref(l.phone) + '">' + escapeHtml(l.phone) + '</a>'
+              : '<span class="empty">No phone</span>') +
+            '<span class="meta-sep">·</span>' +
+            '<span class="lead-timeline">' + val(l.timeline) + '</span>' +
+            '<span class="meta-sep">·</span>' +
+            '<span class="lead-besttime">' + val(l.bestTime) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lead-detail" id="detail-' + l.id + '" role="region">' +
+          '<div class="lead-detail-inner"><div class="lead-detail-content">' +
+            '<div class="detail-grid">' +
+              '<div class="detail-item"><span class="detail-label">Budget</span><span class="detail-value' + (l.budget ? '' : ' empty') + '">' + val(l.budget) + '</span></div>' +
+              '<div class="detail-item"><span class="detail-label">Authority</span><span class="detail-value' + (l.authority ? '' : ' empty') + '">' + val(l.authority) + '</span></div>' +
+              '<div class="detail-item"><span class="detail-label">Need</span><span class="detail-value' + (l.need ? '' : ' empty') + '">' + val(l.need) + '</span></div>' +
+              '<div class="detail-item"><span class="detail-label">Timeline</span><span class="detail-value' + (l.timeline ? '' : ' empty') + '">' + val(l.timeline) + '</span></div>' +
+            '</div>' +
+            '<div class="call-summary">' +
+              '<span class="detail-label">Call Summary</span>' +
+              '<p class="' + (l.summary ? '' : 'empty') + '">' + (l.summary ? escapeHtml(l.summary) : 'No summary recorded.') + '</p>' +
+            '</div>' +
+            (l.phone
+              ? '<a class="call-btn" href="' + telHref(l.phone) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call ' + escapeHtml(l.name) + '</a>'
+              : '') +
+          '</div></div>' +
+        '</div>' +
+      '</article>'
+    );
+  }
+
+  function render() {
+    if (state.loading) return;
+    var visible = getVisibleLeads();
+    els.leadsList.innerHTML = visible.map(leadRowHtml).join('');
+    toggleStates(visible.length ? 'ready' : 'filtered-empty');
+
+    var total = state.leads.length;
+    var qualifiedCount = state.leads.filter(function (l) { return l.qualified; }).length;
+    if (visible.length === total) {
+      els.countSummary.textContent = total + (total === 1 ? ' lead' : ' leads') + ' · ' + qualifiedCount + ' qualified';
+    } else {
+      els.countSummary.textContent = visible.length + ' of ' + total + ' shown';
+    }
+  }
+
+  function updateLastUpdated() {
+    if (!state.lastLoaded) return;
+    var secs = Math.round((Date.now() - state.lastLoaded.getTime()) / 1000);
+    var text;
+    if (secs < 10) text = 'Updated just now';
+    else if (secs < 60) text = 'Updated ' + secs + 's ago';
+    else if (secs < 3600) text = 'Updated ' + Math.round(secs / 60) + 'm ago';
+    else text = 'Updated ' + state.lastLoaded.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    els.lastUpdated.textContent = text;
+  }
+  setInterval(updateLastUpdated, 15000);
+
+  // ─── Events ───
+  var searchDebounce;
+  els.searchInput.addEventListener('input', function (e) {
+    clearTimeout(searchDebounce);
+    var v = e.target.value;
+    searchDebounce = setTimeout(function () { state.searchTerm = v; render(); }, 120);
+  });
+
+  els.chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      els.chips.forEach(function (c) { c.classList.remove('active'); });
+      chip.classList.add('active');
+      state.filter = chip.dataset.filter;
+      render();
+    });
+  });
+
+  els.sortSelect.addEventListener('change', function (e) {
+    state.sort = e.target.value;
+    syncHeadSortIndicators();
+    render();
+  });
+
+  els.headSortBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      els.sortSelect.value = btn.dataset.sort;
+      state.sort = btn.dataset.sort;
+      syncHeadSortIndicators();
+      render();
+    });
+  });
+
+  function syncHeadSortIndicators() {
+    els.headSortBtns.forEach(function (btn) {
+      btn.setAttribute('aria-sort', btn.dataset.sort === state.sort ? 'ascending' : 'none');
+    });
+  }
+
+  els.leadsList.addEventListener('click', function (e) {
+    var toggle = e.target.closest('.lead-toggle');
+    if (!toggle) return;
+    var id = toggle.dataset.id;
+    if (state.openIds.has(id)) state.openIds.delete(id);
+    else state.openIds.add(id);
+    var expanded = state.openIds.has(id);
+    toggle.setAttribute('aria-expanded', expanded);
+    toggle.closest('.lead').setAttribute('data-open', expanded);
+  });
+
+  els.refreshBtn.addEventListener('click', function () {
+    els.refreshBtn.classList.add('spinning');
+    loadLeads();
+    setTimeout(function () { els.refreshBtn.classList.remove('spinning'); }, 700);
+  });
+  els.retryBtn.addEventListener('click', loadLeads);
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && state.lastLoaded &&
+        Date.now() - state.lastLoaded.getTime() > AUTO_REFRESH_STALE_MS) {
+      loadLeads();
+    }
+  });
+
+  // ─── Real PNG home-screen icon, generated client-side (single-file, no assets) ───
+  function makeIcon(size) {
+    var c = document.createElement('canvas');
+    c.width = c.height = size;
+    var ctx = c.getContext('2d');
+    var r = size * 0.22;
+    ctx.fillStyle = '#0a0906';
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.arcTo(size, 0, size, size, r);
+    ctx.arcTo(size, size, 0, size, r);
+    ctx.arcTo(0, size, 0, 0, r);
+    ctx.arcTo(0, 0, size, 0, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f6f2e9';
+    ctx.font = '800 ' + Math.round(size * 0.52) + 'px Syne, Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('L', size / 2, size * 0.56);
+    return c.toDataURL('image/png');
+  }
+
+  function applyIcons() {
+    try {
+      document.getElementById('appleIcon').href = makeIcon(180);
+      document.getElementById('favicon').href = makeIcon(64);
+    } catch (e) { /* canvas unsupported: fall back to inline SVG already set */ }
+  }
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(applyIcons).catch(applyIcons);
+  } else {
+    applyIcons();
+  }
+
+  syncHeadSortIndicators();
+  loadLeads();
+})();
+</script>
+</body>
+</html>
