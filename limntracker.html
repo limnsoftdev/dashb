@@ -628,12 +628,12 @@
   // PASTE YOUR FIREBASE CONFIG HERE — see setup comment at top of file
   // ============================================================
   const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyCJ9VoTYzvUcTdhmcLab4W2fTC3rATioZ0",
+    authDomain: "limntracker.firebaseapp.com",
+    projectId: "limntracker",
+    storageBucket: "limntracker.firebasestorage.app",
+    messagingSenderId: "963386664952",
+    appId: "1:963386664952:web:fce7e627e8bc487db9980d"
   };
   // ============================================================
 
@@ -642,7 +642,12 @@
   let selectedOutcome = null;
   const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
 
-  if (isConfigured) {
+  if (isConfigured && typeof firebase === 'undefined') {
+    document.getElementById('setupWarning').style.display = 'block';
+    document.getElementById('setupWarning').textContent = "Firebase's script failed to load, probably blocked by an ad blocker or privacy extension. Try disabling extensions or opening in a private/incognito window.";
+    document.getElementById('liveText').textContent = 'blocked';
+    document.getElementById('liveDot').querySelector('.pulse').style.background = '#f87171';
+  } else if (isConfigured) {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
     document.getElementById('setupWarning').style.display = 'none';
