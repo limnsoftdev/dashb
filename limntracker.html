@@ -207,7 +207,7 @@
   .intro-scene {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 40px; text-align: center;
+    padding: 40px 40px 90px; text-align: center;
     opacity: 0; transform: translateY(10px);
     transition: opacity 0.5s ease, transform 0.5s ease;
     pointer-events: none;
@@ -232,12 +232,12 @@
 
   .intro-next {
     margin-top: 26px; background: #3B5BFF; color: #fff; border: none;
-    border-radius: 12px; padding: 13px 32px; font-size: 14.5px; font-weight: 700;
-    font-family: inherit; cursor: pointer;
+    border-radius: 12px; padding: 14px 36px; font-size: 14.5px; font-weight: 700;
+    font-family: inherit; cursor: pointer; position: relative; z-index: 5;
   }
   .intro-next:active { transform: scale(0.97); }
 
-  .intro-progress { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+  .intro-progress { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; pointer-events: none; }
   .intro-progress .dot { width: 24px; height: 3px; border-radius: 2px; background: rgba(0,0,0,0.08); }
   .intro-progress .dot.done { background: #3B5BFF; }
 
