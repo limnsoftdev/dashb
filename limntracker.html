@@ -447,11 +447,14 @@
     document.getElementById('intro').classList.add('hide');
     document.getElementById('dashboard').style.opacity = '1';
     localStorage.setItem('limn_intro_seen', 'true');
-    setTimeout(startTour, 500);
+    setTimeout(() => { document.getElementById('intro').style.display = 'none'; }, 500);
+    setTimeout(startTour, 900);
   }
 
   function playIntro() {
-    document.getElementById('intro').classList.remove('hide');
+    const intro = document.getElementById('intro');
+    intro.style.display = 'flex';
+    intro.classList.remove('hide');
     document.getElementById('dashboard').style.opacity = '0';
     introScene = 0;
     buildIntroDots();
@@ -460,6 +463,7 @@
 
   if (localStorage.getItem('limn_intro_seen') === 'true') {
     document.getElementById('intro').classList.add('hide');
+    document.getElementById('intro').style.display = 'none';
     document.getElementById('dashboard').style.opacity = '1';
   } else {
     buildIntroDots();
