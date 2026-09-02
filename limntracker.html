@@ -95,7 +95,10 @@
     padding: 15px 2px;
     display: flex; align-items: flex-start; gap: 12px;
     border-bottom: 1px solid rgba(0,0,0,0.07);
+    cursor: pointer;
   }
+  .log-item:active { background: #f7f7fa; }
+  .log-chevron { flex: none; align-self: center; color: #c8c8d8; font-size: 18px; margin-left: auto; padding-left: 6px; }
 
   .avatar {
     width: 38px; height: 38px; border-radius: 50%; flex: none;
@@ -260,7 +263,7 @@
   .tour-bubble::after {
     content: ''; position: absolute; width: 14px; height: 14px;
     background: #fff; transform: rotate(45deg);
-    left: 24px;
+    left: 50%; margin-left: -7px;
   }
   .tour-bubble.point-up::after { top: -6px; box-shadow: -3px -3px 4px rgba(0,0,0,0.03); }
   .tour-bubble.point-down::after { bottom: -6px; box-shadow: 3px 3px 4px rgba(0,0,0,0.03); }
@@ -287,6 +290,15 @@
     border-radius: 50%; background: #fff; transition: transform 0.2s ease;
   }
   .toggle-switch.on::after { transform: translateX(11px); }
+
+  .confetti-piece { position: absolute; }
+
+  @keyframes statPulse {
+    0% { transform: scale(1); color: #14142a; }
+    45% { transform: scale(1.4); color: #16a34a; }
+    100% { transform: scale(1); color: #14142a; }
+  }
+  .stat-num.pulse { animation: statPulse 0.75s cubic-bezier(0.34, 1.56, 0.64, 1); display: inline-block; }
 </style>
 </head>
 <body>
@@ -329,7 +341,7 @@
   <div class="tour-footer">
     <span class="tour-progress" id="tourProgress"></span>
     <div class="tour-btns">
-      <button class="tour-skip" onclick="endTour()">Skip</button>
+      <button class="tour-skip" onclick="endTour(false)">Skip</button>
       <button class="tour-next" id="tourNextBtn" onclick="nextTourStep()">Next</button>
     </div>
   </div>
@@ -364,7 +376,7 @@
 
 <div class="sheet-overlay" id="overlay" onclick="closeSheet(event)">
   <div class="sheet" onclick="event.stopPropagation()">
-    <div class="sheet-title">Log a call</div>
+    <div class="sheet-title" id="sheetTitle">Log a call</div>
 
     <div class="field-label">Business name</div>
     <input type="text" id="fBusiness" placeholder="e.g. Redd Roofing">
@@ -411,6 +423,7 @@
 
     <button class="save-btn" onclick="saveEntry()">Save</button>
     <button class="cancel-btn" onclick="closeSheet()">Cancel</button>
+    <button class="cancel-btn" id="deleteBtn" onclick="deleteEntry()" style="display:none; color:#dc2626;">Delete this call</button>
   </div>
 </div>
 
@@ -481,12 +494,12 @@
     },
     {
       selector: '.add-btn',
-      text: "Tap here after every call, even the quick no-answers.",
-      onEnter: () => openSheet()
+      text: "Tap here after every call, even the quick no-answers."
     },
     {
       selector: '#outcomeGrid',
-      text: "Pick an outcome. Detail fields only show up if it's Qualified or Closed, so most calls take five seconds."
+      text: "Pick an outcome. Detail fields only show up if it's Qualified or Closed, so most calls take five seconds.",
+      onEnter: () => openSheet()
     }
   ];
   let tourIndex = 0;
@@ -535,9 +548,8 @@
       bubble.classList.remove('point-up'); bubble.classList.add('point-down');
     }
     bubble.style.top = Math.max(16, top) + 'px';
-    let left = rect.left + rect.width / 2 - 130;
-    left = Math.max(16, Math.min(left, window.innerWidth - 276));
-    bubble.style.left = left + 'px';
+    const left = (window.innerWidth - 260) / 2;
+    bubble.style.left = Math.max(16, left) + 'px';
 
     bubble.classList.add('show');
   }
@@ -550,19 +562,54 @@
       if (step.onExit) step.onExit();
       tourIndex += 1;
       if (tourIndex >= tourSteps.length) {
-        endTour();
+        endTour(true);
       } else {
         showTourStep(tourIndex);
       }
     }, 300);
   }
 
-  function endTour() {
+  function confettiBurst() {
+    const colors = ['#3B5BFF', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'];
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed; inset:0; pointer-events:none; z-index:200; overflow:hidden;';
+    document.body.appendChild(container);
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    for (let i = 0; i < 46; i++) {
+      const piece = document.createElement('div');
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const size = 6 + Math.random() * 7;
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 160 + Math.random() * 260;
+      const endX = Math.cos(angle) * dist;
+      const endY = Math.sin(angle) * dist - 120;
+      piece.className = 'confetti-piece';
+      piece.style.cssText = 'left:' + cx + 'px; top:' + cy + 'px; width:' + size + 'px; height:' + size + 'px; background:' + color + '; border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + '; opacity:1; transform:translate(0,0) rotate(0deg); transition: transform ' + (0.8 + Math.random() * 0.6) + 's cubic-bezier(0.2,0.8,0.2,1), opacity ' + (1 + Math.random() * 0.4) + 's ease;';
+      container.appendChild(piece);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        piece.style.transform = 'translate(' + endX + 'px, ' + endY + 'px) rotate(' + (Math.random() * 720 - 360) + 'deg)';
+        piece.style.opacity = '0';
+      }));
+    }
+    setTimeout(() => container.remove(), 2000);
+  }
+
+  function pulseStats() {
+    document.querySelectorAll('.stat-num').forEach(el => {
+      el.classList.remove('pulse');
+      void el.offsetWidth;
+      el.classList.add('pulse');
+    });
+  }
+
+  function endTour(celebrate) {
     const bubble = document.getElementById('tourBubble');
     bubble.classList.remove('show');
     const step = tourSteps[tourIndex];
     if (step && step.onExit) step.onExit();
     if (document.getElementById('overlay').classList.contains('open')) closeSheet();
+    if (celebrate) confettiBurst();
     setTimeout(() => {
       document.getElementById('spotlight').style.display = 'none';
       document.getElementById('tourBubble').style.display = 'none';
@@ -618,18 +665,50 @@
     });
   }
 
-  function openSheet() {
+  let editingId = null;
+
+  function openSheet(entry) {
     document.getElementById('overlay').classList.add('open');
-    selectedOutcome = null;
-    document.querySelectorAll('.outcome-btn').forEach(b => b.classList.remove('selected'));
-    document.getElementById('discoveryFields').classList.remove('show');
-    document.getElementById('fBusiness').value = '';
-    document.getElementById('fPhone').value = '';
-    ['fEmail','fOrigin','fServices','fEdge','fArea','fCta','fHours','fFallback','fNotes'].forEach(id => document.getElementById(id).value = '');
+    editingId = entry ? entry.id : null;
+    document.getElementById('sheetTitle').textContent = entry ? 'Edit call' : 'Log a call';
+    document.getElementById('deleteBtn').style.display = entry ? 'block' : 'none';
+
+    selectedOutcome = entry ? entry.outcome : null;
+    document.querySelectorAll('.outcome-btn').forEach(b => {
+      const match = entry && b.dataset.val === entry.outcome;
+      b.classList.toggle('selected', match);
+      b.classList.toggle(b.dataset.val, match);
+    });
+    document.getElementById('discoveryFields').classList.toggle('show', entry && (entry.outcome === 'qualified' || entry.outcome === 'closed'));
+
+    document.getElementById('fBusiness').value = entry ? entry.business || '' : '';
+    document.getElementById('fPhone').value = entry ? entry.phone || '' : '';
+    ['fEmail','fOrigin','fServices','fEdge','fArea','fCta','fHours','fFallback','fNotes'].forEach(id => {
+      const key = id.slice(1).charAt(0).toLowerCase() + id.slice(2);
+      document.getElementById(id).value = entry ? (entry[key] || '') : '';
+    });
+  }
+
+  function editEntry(id) {
+    const entry = entries.find(e => e.id === id);
+    if (entry) openSheet(entry);
+  }
+
+  async function deleteEntry() {
+    if (!editingId) return;
+    if (!confirm('Delete this call? This can\'t be undone.')) return;
+    if (isConfigured) {
+      await db.collection('calls').doc(editingId).delete();
+    } else {
+      entries = entries.filter(e => e.id !== editingId);
+      render();
+    }
+    closeSheet();
   }
 
   function closeSheet() {
     document.getElementById('overlay').classList.remove('open');
+    editingId = null;
   }
 
   function selectOutcome(val) {
@@ -648,8 +727,9 @@
       alert('Add a business name and pick an outcome first.');
       return;
     }
+    const original = editingId ? entries.find(e => e.id === editingId) : null;
     const entry = {
-      date: new Date().toISOString(),
+      date: original ? original.date : new Date().toISOString(),
       business,
       phone: document.getElementById('fPhone').value.trim(),
       outcome: selectedOutcome,
@@ -665,12 +745,22 @@
     };
 
     if (isConfigured) {
-      await db.collection('calls').add(entry);
+      if (editingId) {
+        await db.collection('calls').doc(editingId).update(entry);
+      } else {
+        await db.collection('calls').add(entry);
+      }
     } else {
-      entry.id = 'local-' + Date.now();
-      entries.unshift(entry);
+      if (editingId) {
+        const idx = entries.findIndex(e => e.id === editingId);
+        if (idx > -1) entries[idx] = { ...entries[idx], ...entry };
+      } else {
+        entry.id = 'local-' + Date.now();
+        entries.unshift(entry);
+      }
       render();
     }
+    pulseStats();
     closeSheet();
   }
 
@@ -727,7 +817,7 @@
         if (e.notes) parts.push(e.notes);
         detail = parts.length ? '<div class="log-detail">' + parts.join(' · ') + '</div>' : '';
       }
-      return `<div class="log-item">
+      return `<div class="log-item" onclick="editEntry('${e.id}')">
         <div class="avatar">${initials(e.business)}</div>
         <div class="log-body">
           <div class="log-top">
@@ -741,6 +831,7 @@
           </div>
           ${detail}
         </div>
+        <div class="log-chevron">›</div>
       </div>`;
     }).join('');
   }
