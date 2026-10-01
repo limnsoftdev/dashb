@@ -35,6 +35,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // LIMN Tracker call log (limntracker.html). Every business shown on its
+    // Businesses page comes from these docs.
+    match /calls/{callId} {
+      allow read, write: if isMember();
+    }
+
     // Shared status + notes per lead, visible to every member on every device.
     match /leadNotes/{leadId} {
       allow read, write: if isMember();

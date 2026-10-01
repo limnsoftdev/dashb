@@ -33,6 +33,7 @@
 -->
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -299,6 +300,47 @@
     100% { transform: scale(1); color: #14142a; }
   }
   .stat-num.pulse { animation: statPulse 0.75s cubic-bezier(0.34, 1.56, 0.64, 1); display: inline-block; }
+
+  [hidden] { display: none !important; }
+
+  /* ─── Auth ─── */
+  .auth-screen {
+    position: fixed; inset: 0; z-index: 150; background: #f7f7fa; overflow-y: auto;
+    display: flex; align-items: center; justify-content: center; padding: 32px 20px;
+  }
+  .auth-card { width: 100%; max-width: 360px; }
+  .auth-card h1 { margin-bottom: 26px; }
+  .auth-card h2 { font-size: 22px; font-weight: 800; color: #14142a; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .auth-card .sub { font-size: 14px; color: #6b6b85; line-height: 1.5; margin: 0 0 22px; }
+  .auth-card .field-label:first-of-type { margin-top: 15px; }
+  .auth-error { color: #dc2626; font-size: 13px; line-height: 1.45; min-height: 19px; margin: 12px 0 0; }
+  .auth-card .save-btn { margin-top: 10px; }
+  .auth-card .save-btn:disabled { opacity: 0.6; cursor: progress; }
+  .auth-switch { text-align: center; font-size: 13px; color: #8b8ba3; margin-top: 18px; }
+  .link-btn { background: none; border: none; color: #3B5BFF; font-weight: 600; font-size: 13px; cursor: pointer; font-family: inherit; padding: 4px 0; }
+
+  .user-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 12px; color: #8b8ba3; font-weight: 600; }
+  .user-row .link-btn { font-size: 12px; color: #8b8ba3; text-decoration: underline; }
+
+  /* ─── Tabs ─── */
+  .tabs { display: flex; gap: 6px; margin-top: 14px; background: rgba(0,0,0,0.05); border-radius: 10px; padding: 3px; }
+  .tab { flex: 1; background: none; border: none; border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 700; color: #6b6b85; cursor: pointer; font-family: inherit; }
+  .tab[aria-selected="true"] { background: #fff; color: #14142a; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+  /* ─── Businesses ─── */
+  .biz-search { margin: 18px 16px 12px; width: calc(100% - 32px); }
+  .biz-item { border-bottom: 1px solid rgba(0,0,0,0.07); }
+  .biz-item .log-item { border-bottom: none; }
+  .biz-detail { padding: 0 2px 16px 50px; }
+  .biz-fields { display: grid; gap: 10px; margin-bottom: 14px; }
+  .biz-field .k { font-size: 10.5px; color: #8b8ba3; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; }
+  .biz-field .v { font-size: 13.5px; color: #24243e; line-height: 1.45; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+  .biz-field .v a { color: #3B5BFF; }
+  .biz-history-label { font-size: 10.5px; color: #8b8ba3; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; margin-bottom: 6px; }
+  .biz-call { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 10px; margin-bottom: 6px; cursor: pointer; font-size: 12.5px; }
+  .biz-call .when { color: #8b8ba3; white-space: nowrap; }
+  .biz-item[data-open="true"] .log-chevron { transform: rotate(90deg); }
+  .log-chevron { transition: transform 0.2s ease; }
 </style>
 </head>
 <body>
@@ -314,11 +356,27 @@
       <button onclick="playIntro()" style="background:none; border:none; color:#8b8ba3; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; padding:0;">Replay tour</button>
     </div>
   </div>
+  <div class="user-row">
+    <span>Signed in as <span id="whoami"></span></span>
+    <button class="link-btn" onclick="signOutUser()">Sign out</button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-view="calls" onclick="setView('calls')">Calls</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="businesses" onclick="setView('businesses')">Businesses</button>
+  </div>
 </header>
 
 <div id="setupWarning" class="setup-warning" style="display:none;">
   Firebase isn't configured yet. Open this file and fill in the firebaseConfig section near the top with your own Firebase project keys. See the comment block for steps.
 </div>
+
+<div id="bizView" hidden>
+  <input type="search" id="bizSearch" class="biz-search" placeholder="Search businesses, services, area…" oninput="renderBusinesses()" autocomplete="off">
+  <div class="section-label" id="bizCount">Businesses</div>
+  <div class="log-list" id="bizList" style="margin: 0 16px;"></div>
+</div>
+
+<div id="callsView">
 
 <div class="stats-grid">
   <div class="stat-card"><div class="stat-num" id="statWeekCalls">0</div><div class="stat-label">This Week</div></div>
@@ -332,7 +390,51 @@
 
 <div class="section-label">Recent activity</div>
 <div class="log-list" id="logList" style="margin: 0 16px;"></div>
+</div>
 
+</div>
+
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <h1>LIMN Tracker</h1>
+    <p class="sub" id="authBoot">Loading…</p>
+
+    <form id="loginForm" hidden novalidate onsubmit="submitLogin(event)">
+      <h2>Sign in</h2>
+      <p class="sub">Use the username and password you created with your invite code.</p>
+      <div class="field-label">Username</div>
+      <input id="loginUsername" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <div class="field-label">Password</div>
+      <input id="loginPassword" type="password" autocomplete="current-password">
+      <p class="auth-error" id="loginError" role="alert"></p>
+      <button class="save-btn" type="submit">Sign in</button>
+      <p class="auth-switch">Have an invite code? <button class="link-btn" type="button" onclick="showAuthForm('code')">Create an account</button></p>
+    </form>
+
+    <form id="codeForm" hidden novalidate onsubmit="submitCode(event)">
+      <h2>Enter invite code</h2>
+      <p class="sub">You need a code from LIMN to create an account.</p>
+      <div class="field-label">Invite code</div>
+      <input id="inviteCode" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <p class="auth-error" id="codeError" role="alert"></p>
+      <button class="save-btn" type="submit">Continue</button>
+      <p class="auth-switch">Already have an account? <button class="link-btn" type="button" onclick="showAuthForm('login')">Sign in</button></p>
+    </form>
+
+    <form id="signupForm" hidden novalidate onsubmit="submitSignup(event)">
+      <h2>Create your account</h2>
+      <p class="sub">Code accepted. Pick a username and password. You'll use them on every device.</p>
+      <div class="field-label">Username</div>
+      <input id="signupUsername" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="3–20 letters, numbers or _">
+      <div class="field-label">Password</div>
+      <input id="signupPassword" type="password" autocomplete="new-password" placeholder="At least 8 characters">
+      <div class="field-label">Confirm password</div>
+      <input id="signupConfirm" type="password" autocomplete="new-password">
+      <p class="auth-error" id="signupError" role="alert"></p>
+      <button class="save-btn" type="submit">Create account</button>
+      <p class="auth-switch"><button class="link-btn" type="button" onclick="showAuthForm('code')">Use a different code</button></p>
+    </form>
+  </div>
 </div>
 
 <div class="spotlight" id="spotlight"></div>
@@ -350,7 +452,7 @@
 <div class="intro" id="intro">
   <div class="intro-scene active" data-scene="0">
     <div class="intro-icon i-anim">👋</div>
-    <h2 class="i-anim">Hello Janette</h2>
+    <h2 class="i-anim" id="introHello">Hello</h2>
     <button class="intro-next i-anim" onclick="nextIntroScene()">Next</button>
   </div>
   <div class="intro-scene" data-scene="1">
@@ -637,37 +739,262 @@
   };
   // ============================================================
 
+  // Usernames become Firebase Auth emails behind the scenes (no email is ever sent).
+  const USERNAME_EMAIL_DOMAIN = 'users.limn-leads.app';
+
   let db = null;
+  let auth = null;
   let entries = [];
   let selectedOutcome = null;
+  let currentUser = null;   // { uid, username }
+  let unsubscribeCalls = null;
+  let signingUp = false;
+  let verifiedCode = null;
+  let currentView = 'calls';
+  const openBiz = new Set();
   const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+  const $ = id => document.getElementById(id);
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 
   if (isConfigured && typeof firebase === 'undefined') {
-    document.getElementById('setupWarning').style.display = 'block';
-    document.getElementById('setupWarning').textContent = "Firebase's script failed to load, probably blocked by an ad blocker or privacy extension. Try disabling extensions or opening in a private/incognito window.";
-    document.getElementById('liveText').textContent = 'blocked';
-    document.getElementById('liveDot').querySelector('.pulse').style.background = '#f87171';
+    $('setupWarning').style.display = 'block';
+    $('setupWarning').textContent = "Firebase's script failed to load, probably blocked by an ad blocker or privacy extension. Try disabling extensions or opening in a private/incognito window.";
+    $('liveText').textContent = 'blocked';
+    $('liveDot').querySelector('.pulse').style.background = '#f87171';
+    $('authBoot').textContent = "Firebase couldn't load. Try turning off ad blockers or opening a private window.";
   } else if (isConfigured) {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
-    document.getElementById('setupWarning').style.display = 'none';
-    listenToEntries();
+    auth = firebase.auth();
+    $('setupWarning').style.display = 'none';
+    auth.onAuthStateChanged(handleAuthState);
   } else {
-    document.getElementById('setupWarning').style.display = 'block';
-    document.getElementById('liveText').textContent = 'not configured';
-    document.getElementById('liveDot').querySelector('.pulse').style.background = '#f87171';
+    $('authScreen').hidden = true;
+    $('setupWarning').style.display = 'block';
+    $('liveText').textContent = 'not configured';
+    $('liveDot').querySelector('.pulse').style.background = '#f87171';
     render();
   }
 
+  // ─── Accounts: invite code → username + password ───
+  function usernameToEmail(u) { return u + '@' + USERNAME_EMAIL_DOMAIN; }
+  function normalizeUsername(v) { return v.trim().toLowerCase(); }
+
+  function showAuthForm(which) {
+    $('authScreen').hidden = false;
+    $('authBoot').hidden = true;
+    $('loginForm').hidden = which !== 'login';
+    $('codeForm').hidden = which !== 'code';
+    $('signupForm').hidden = which !== 'signup';
+    ['loginError', 'codeError', 'signupError'].forEach(id => { $(id).textContent = ''; });
+  }
+
+  function authErrorMessage(err) {
+    const code = err && err.code;
+    if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email', 'auth/invalid-login-credentials'].includes(code)) return 'Wrong username or password.';
+    if (code === 'auth/email-already-in-use') return 'That username is taken. Try another.';
+    if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a minute and try again.';
+    if (code === 'auth/network-request-failed' || code === 'unavailable') return "You're offline. Reconnect and try again.";
+    if (code === 'permission-denied') return 'That invite code is no longer valid.';
+    return 'Something went wrong. Try again.';
+  }
+
+  function setBusy(form, busy) { form.querySelector('.save-btn').disabled = busy; }
+
+  async function submitLogin(e) {
+    e.preventDefault();
+    const username = normalizeUsername($('loginUsername').value);
+    const password = $('loginPassword').value;
+    if (!username || !password) { $('loginError').textContent = 'Enter your username and password.'; return; }
+    setBusy($('loginForm'), true);
+    try { await auth.signInWithEmailAndPassword(usernameToEmail(username), password); }
+    catch (err) { $('loginError').textContent = authErrorMessage(err); }
+    finally { setBusy($('loginForm'), false); }
+  }
+
+  async function submitCode(e) {
+    e.preventDefault();
+    const code = $('inviteCode').value.trim();
+    if (!code || code.includes('/')) { $('codeError').textContent = 'Enter a valid invite code.'; return; }
+    setBusy($('codeForm'), true);
+    try {
+      const snap = await db.collection('inviteCodes').doc(code).get();
+      if (!snap.exists) { $('codeError').textContent = "That code isn't valid."; return; }
+      verifiedCode = code;
+      showAuthForm('signup');
+    } catch (err) {
+      $('codeError').textContent = err && err.code === 'unavailable'
+        ? "You're offline. Reconnect and try again."
+        : "Couldn't check the code right now. Try again in a minute.";
+    } finally { setBusy($('codeForm'), false); }
+  }
+
+  async function submitSignup(e) {
+    e.preventDefault();
+    const errEl = $('signupError');
+    const username = normalizeUsername($('signupUsername').value);
+    const password = $('signupPassword').value;
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) { errEl.textContent = 'Username must be 3–20 letters, numbers or underscores.'; return; }
+    if (password.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; return; }
+    if (password !== $('signupConfirm').value) { errEl.textContent = "Passwords don't match."; return; }
+    if (!verifiedCode) { showAuthForm('code'); return; }
+
+    setBusy($('signupForm'), true);
+    signingUp = true;
+    let created = null;
+    try {
+      created = (await auth.createUserWithEmailAndPassword(usernameToEmail(username), password)).user;
+      const batch = db.batch();
+      batch.set(db.collection('users').doc(created.uid), { username, inviteCode: verifiedCode, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      batch.set(db.collection('usernames').doc(username), { uid: created.uid });
+      await batch.commit();
+      signingUp = false;
+      enterApp({ uid: created.uid, username });
+    } catch (err) {
+      const msg = authErrorMessage(err);
+      // Profile write refused (e.g. code revoked mid-signup): don't leave an orphan login behind.
+      if (created) { try { await created.delete(); } catch (_) { await auth.signOut(); } }
+      signingUp = false;
+      showAuthForm('signup');
+      errEl.textContent = msg;
+    } finally { setBusy($('signupForm'), false); }
+  }
+
+  async function handleAuthState(user) {
+    if (signingUp) return; // submitSignup finishes (or rolls back) the flow
+    if (!user) { leaveApp(); showAuthForm('login'); return; }
+    try {
+      const snap = await db.collection('users').doc(user.uid).get();
+      if (!snap.exists) throw new Error('NO_PROFILE');
+      enterApp({ uid: user.uid, username: snap.data().username });
+    } catch (_) {
+      await auth.signOut();
+      showAuthForm('login');
+      $('loginError').textContent = "This account isn't activated. Sign up with an invite code.";
+    }
+  }
+
+  function enterApp(user) {
+    if (currentUser && currentUser.uid === user.uid) return;
+    currentUser = user;
+    $('whoami').textContent = user.username;
+    $('introHello').textContent = 'Hello ' + user.username;
+    $('authScreen').hidden = true;
+    ['loginPassword', 'signupPassword', 'signupConfirm'].forEach(id => { $(id).value = ''; });
+    listenToEntries();
+  }
+
+  function leaveApp() {
+    if (unsubscribeCalls) { unsubscribeCalls(); unsubscribeCalls = null; }
+    currentUser = null;
+    entries = [];
+    openBiz.clear();
+    closeSheet();
+    render();
+  }
+
+  function signOutUser() { if (auth) auth.signOut(); }
+
   function listenToEntries() {
-    db.collection('calls').orderBy('date', 'desc').onSnapshot((snapshot) => {
+    unsubscribeCalls = db.collection('calls').orderBy('date', 'desc').onSnapshot((snapshot) => {
       entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      document.getElementById('liveText').textContent = 'live';
+      $('liveText').textContent = 'live';
       render();
     }, (err) => {
-      document.getElementById('liveText').textContent = 'error';
+      $('liveText').textContent = 'error';
+      if (err.code === 'permission-denied') {
+        $('setupWarning').style.display = 'block';
+        $('setupWarning').textContent = "Access denied loading calls. The Firestore rules may need updating.";
+      }
       console.error(err);
     });
+  }
+
+  // ─── Views ───
+  function setView(view) {
+    currentView = view;
+    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.view === view));
+    $('callsView').hidden = view !== 'calls';
+    $('bizView').hidden = view !== 'businesses';
+    if (view === 'businesses') renderBusinesses();
+  }
+
+  // One entry per business (grouped by name), newest details win, full call history kept.
+  const BIZ_FIELDS = [
+    ['phone', 'Phone'], ['email', 'Email'], ['origin', 'Origin'], ['services', 'Services offered'],
+    ['edge', 'Competitive edge'], ['area', 'Service area'], ['cta', 'Call-to-action'],
+    ['hours', 'Business hours'], ['fallback', 'Fallback contact number'], ['notes', 'Notes']
+  ];
+
+  function groupBusinesses() {
+    const map = new Map();
+    entries.forEach(e => { // entries are newest first
+      const key = (e.business || '').trim().toLowerCase();
+      if (!key) return;
+      if (!map.has(key)) map.set(key, { key, name: e.business.trim(), latest: e, calls: [], info: {} });
+      const b = map.get(key);
+      b.calls.push(e);
+      BIZ_FIELDS.forEach(([f]) => { if (!b.info[f] && e[f]) b.info[f] = e[f]; });
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  function bizFieldHtml(field, value) {
+    const v = escapeHtml(value);
+    if (field === 'phone' || field === 'fallback') return '<a href="tel:' + escapeHtml(String(value).replace(/[^\d+]/g, '')) + '">' + v + '</a>';
+    if (field === 'email') return '<a href="mailto:' + v + '">' + v + '</a>';
+    return v;
+  }
+
+  function renderBusinesses() {
+    if (currentView !== 'businesses') return;
+    const term = $('bizSearch').value.trim().toLowerCase();
+    const all = groupBusinesses();
+    const list = all.filter(b => !term || (b.name + ' ' + Object.values(b.info).join(' ')).toLowerCase().includes(term));
+    $('bizCount').textContent = list.length === all.length
+      ? all.length + (all.length === 1 ? ' business' : ' businesses')
+      : list.length + ' of ' + all.length + ' businesses';
+    const el = $('bizList');
+    if (!list.length) {
+      el.innerHTML = '<div class="empty">' + (all.length ? 'No businesses match that search.' : 'No businesses yet.<br>They show up here once you log a call.') + '</div>';
+      return;
+    }
+    el.innerHTML = list.map(b => {
+      const open = openBiz.has(b.key);
+      const fields = BIZ_FIELDS.filter(([f]) => b.info[f]).map(([f, label]) =>
+        '<div class="biz-field"><div class="k">' + label + '</div><div class="v">' + bizFieldHtml(f, b.info[f]) + '</div></div>').join('');
+      const calls = b.calls.map(c => {
+        const d = new Date(c.date);
+        return '<div class="biz-call" onclick="editEntry(\'' + escapeHtml(c.id) + '\')"><span>' + escapeHtml(outcomeLabel(c.outcome)) +
+          (c.loggedBy ? ' · ' + escapeHtml(c.loggedBy) : '') + '</span><span class="when">' +
+          d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + '</span></div>';
+      }).join('');
+      return '<div class="biz-item" data-open="' + open + '">' +
+        '<div class="log-item" data-key="' + escapeHtml(b.key) + '" onclick="toggleBiz(this.dataset.key)">' +
+          '<div class="avatar">' + escapeHtml(initials(b.name)) + '</div>' +
+          '<div class="log-body">' +
+            '<div class="log-top"><div class="log-name">' + escapeHtml(b.name) + '</div>' +
+            '<div class="log-date">' + b.calls.length + (b.calls.length === 1 ? ' call' : ' calls') + '</div></div>' +
+            '<div class="log-meta">' + escapeHtml(b.info.phone || 'no number') + '</div>' +
+            '<div class="status-row ' + escapeHtml(b.latest.outcome) + '"><div class="status-icon">' + statusIcon(b.latest.outcome) + '</div>' +
+            '<div class="status-label">' + escapeHtml(outcomeLabel(b.latest.outcome)) + '</div></div>' +
+          '</div>' +
+          '<div class="log-chevron">›</div>' +
+        '</div>' +
+        (open ? '<div class="biz-detail">' + (fields ? '<div class="biz-fields">' + fields + '</div>' : '') +
+          '<div class="biz-history-label">Call history</div>' + calls + '</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+
+  function toggleBiz(key) {
+    if (openBiz.has(key)) openBiz.delete(key); else openBiz.add(key);
+    renderBusinesses();
   }
 
   let editingId = null;
@@ -753,7 +1080,7 @@
       if (editingId) {
         await db.collection('calls').doc(editingId).update(entry);
       } else {
-        await db.collection('calls').add(entry);
+        await db.collection('calls').add({ ...entry, loggedBy: currentUser ? currentUser.username : '' });
       }
     } else {
       if (editingId) {
@@ -784,7 +1111,7 @@
   }
 
   function initials(name) {
-    return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    return name.split(' ').map(w => w.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean).map(w => w[0]).join('').slice(0,2).toUpperCase();
   }
 
   function statusIcon(o) {
@@ -806,6 +1133,7 @@
     bonusBar.className = 'bonus-bar';
     bonusBar.textContent = totalCloses + ' active client' + (totalCloses === 1 ? '' : 's') + ' → $' + (activeClients * 50) + '/mo in residual, plus $150 per new close';
 
+    renderBusinesses();
     const list = document.getElementById('logList');
     if (entries.length === 0) {
       list.innerHTML = '<div class="empty">No calls logged yet.<br>Tap "Log a call" to start.</div>';
@@ -817,22 +1145,22 @@
       let detail = '';
       if (e.outcome === 'qualified' || e.outcome === 'closed') {
         const parts = [];
-        if (e.area) parts.push('Area: ' + e.area);
-        if (e.hours) parts.push('Hours: ' + e.hours);
-        if (e.notes) parts.push(e.notes);
+        if (e.area) parts.push('Area: ' + escapeHtml(e.area));
+        if (e.hours) parts.push('Hours: ' + escapeHtml(e.hours));
+        if (e.notes) parts.push(escapeHtml(e.notes));
         detail = parts.length ? '<div class="log-detail">' + parts.join(' · ') + '</div>' : '';
       }
       return `<div class="log-item" onclick="editEntry('${e.id}')">
-        <div class="avatar">${initials(e.business)}</div>
+        <div class="avatar">${escapeHtml(initials(e.business))}</div>
         <div class="log-body">
           <div class="log-top">
-            <div class="log-name">${e.business}</div>
+            <div class="log-name">${escapeHtml(e.business)}</div>
             <div class="log-date">${dateStr}</div>
           </div>
-          <div class="log-meta">${e.phone || 'no number'}</div>
-          <div class="status-row ${e.outcome}">
+          <div class="log-meta">${escapeHtml(e.phone || 'no number')}${e.loggedBy ? ' · by ' + escapeHtml(e.loggedBy) : ''}</div>
+          <div class="status-row ${escapeHtml(e.outcome)}">
             <div class="status-icon">${statusIcon(e.outcome)}</div>
-            <div class="status-label">${outcomeLabel(e.outcome)}</div>
+            <div class="status-label">${escapeHtml(outcomeLabel(e.outcome))}</div>
           </div>
           ${detail}
         </div>
