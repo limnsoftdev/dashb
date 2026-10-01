@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>LIMN Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!--
+  ============================================================
+  SETUP REQUIRED — read before deploying to GitHub Pages
+  ============================================================
+  This app needs a Firebase project to store data (GitHub Pages
+  is static hosting, it can't run a database itself).
+
+  1. Go to console.firebase.google.com, create a free project
+  2. Build > Firestore Database > Create database > Start in
+     test mode (fine for one internal tool like this)
+  3. Project settings (gear icon) > scroll to "Your apps" >
+     click the </> web icon > register the app
+  4. Copy the firebaseConfig object it gives you and paste it
+     below, replacing the placeholder values
+  5. In Firestore rules tab, you can tighten access later, but
+     test mode works to get started
+
+  The apiKey below is meant to be public for a client-side app
+  like this — Firebase security comes from Firestore Rules, not
+  from hiding this key.
+  ============================================================
+-->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 0;
+    background: #f7f7fa;
+    color: #1a1a2e;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding-bottom: 40px;
+  }
+
+  header {
+    padding: 22px 20px 16px;
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(247,247,250,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  .brand { display: flex; align-items: center; justify-content: space-between; }
+  h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #14142a; }
+  .live-dot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8b8ba3; font-weight: 600; }
+  .live-dot .pulse { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    padding: 20px 16px 4px;
+  }
+  .stat-card {
+    text-align: center;
+    border-right: 1px solid rgba(0,0,0,0.07);
+  }
+  .stat-card:last-child { border-right: none; }
+  .stat-num { font-size: 30px; font-weight: 800; color: #14142a; letter-spacing: -0.03em; }
+  .stat-label { font-size: 10.5px; color: #8b8ba3; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 4px; font-weight: 600; }
+
+  .bonus-bar {
+    margin: 16px 16px 6px; padding: 4px 0 4px 14px;
+    font-size: 13px; font-weight: 600;
+    border-left: 3px solid #3B5BFF; color: #2843c9;
+  }
+
+  .add-btn {
+    margin: 20px 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: calc(100% - 32px);
+    background: #3B5BFF; color: #fff; border: none; border-radius: 12px;
+    padding: 15px; font-size: 15px; font-weight: 700;
+    font-family: inherit; cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .add-btn:active { transform: scale(0.98); }
+
+  .section-label {
+    padding: 4px 16px 10px; font-size: 12px; font-weight: 700;
+    color: #8b8ba3; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  .log-list { border-top: 1px solid rgba(0,0,0,0.07); }
+  .log-item {
+    padding: 15px 2px;
+    display: flex; align-items: flex-start; gap: 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.07);
+    cursor: pointer;
+  }
+  .log-item:active { background: #f7f7fa; }
+  .log-chevron { flex: none; align-self: center; color: #c8c8d8; font-size: 18px; margin-left: auto; padding-left: 6px; }
+
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, #3B5BFF, #6b8cff);
+  }
+
+  .log-body { flex: 1; min-width: 0; }
+  .log-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .log-name { font-size: 14.5px; font-weight: 700; color: #14142a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-date { font-size: 10.5px; color: #a0a0b8; white-space: nowrap; flex: none; margin-top: 2px; }
+  .log-meta { font-size: 11.5px; color: #8b8ba3; margin-top: 1px; }
+
+  .status-row {
+    display: flex; align-items: center; gap: 7px; margin-top: 8px;
+  }
+  .status-icon {
+    width: 18px; height: 18px; border-radius: 5px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+  }
+  .status-label { font-size: 12px; font-weight: 600; }
+
+  .status-row.no_answer .status-icon { background: rgba(139,139,163,0.15); color: #6b6b85; }
+  .status-row.no_answer .status-label { color: #6b6b85; }
+  .status-row.not_interested .status-icon { background: rgba(239,68,68,0.15); color: #dc2626; }
+  .status-row.not_interested .status-label { color: #dc2626; }
+  .status-row.qualified .status-icon { background: rgba(245,158,11,0.15); color: #b45309; }
+  .status-row.qualified .status-label { color: #b45309; }
+  .status-row.closed .status-icon { background: rgba(34,197,94,0.15); color: #15803d; }
+  .status-row.closed .status-label { color: #15803d; }
+
+  .log-detail { margin-top: 8px; font-size: 11.5px; color: #6b6b85; line-height: 1.5; }
+
+  .empty { text-align: center; color: #a0a0b8; padding: 50px 20px; font-size: 13px; }
+  .empty .big { font-size: 32px; margin-bottom: 10px; }
+
+  .setup-warning {
+    margin: 16px; padding: 14px 16px; border-radius: 14px;
+    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+    color: #b45309; font-size: 12.5px; line-height: 1.5;
+  }
+
+  .sheet-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(20,20,42,0.4); z-index: 50;
+  }
+  .sheet-overlay.open { display: block; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 51;
+    background: #ffffff; border-radius: 22px 22px 0 0;
+    max-height: 88vh; overflow-y: auto;
+    padding: 22px 20px 32px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.1);
+  }
+  .sheet-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; color: #14142a; }
+  .field-label { font-size: 11.5px; color: #8b8ba3; margin: 15px 0 6px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; }
+  .field-label:first-of-type { margin-top: 0; }
+  input, textarea {
+    width: 100%; background: #f7f7fa; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px;
+    padding: 12px 13px; color: #14142a; font-size: 15px; font-family: inherit;
+  }
+  input:focus, textarea:focus { outline: none; border-color: #3B5BFF; background: #fff; }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .outcome-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .outcome-btn {
+    padding: 13px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); background: #f7f7fa;
+    color: #4b4b63; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: all 0.15s ease;
+  }
+  .outcome-btn::before { content: '○'; font-size: 13px; color: #b0b0c5; }
+  .outcome-btn.selected::before { content: '●'; }
+  .outcome-btn.selected.no_answer { background: #f0f0f5; color: #4b4b63; }
+  .outcome-btn.selected.no_answer::before { color: #6b6b85; }
+  .outcome-btn.selected.not_interested { background: rgba(239,68,68,0.06); color: #dc2626; }
+  .outcome-btn.selected.not_interested::before { color: #dc2626; }
+  .outcome-btn.selected.qualified { background: rgba(245,158,11,0.06); color: #b45309; }
+  .outcome-btn.selected.qualified::before { color: #b45309; }
+  .outcome-btn.selected.closed { background: rgba(34,197,94,0.06); color: #15803d; }
+  .outcome-btn.selected.closed::before { color: #15803d; }
+
+  .discovery-fields { display: none; }
+  .discovery-fields.show { display: block; animation: slideDown 0.3s ease; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .save-btn {
+    margin-top: 22px; width: 100%; background: #3B5BFF; color: #fff; border: none;
+    border-radius: 14px; padding: 16px; font-size: 15px; font-weight: 700; cursor: pointer;
+    font-family: inherit;
+  }
+  .cancel-btn {
+    margin-top: 10px; width: 100%; background: transparent; color: #8b8ba3; border: none;
+    padding: 10px; font-size: 13px; font-family: inherit; cursor: pointer;
+  }
+
+  #dashboard { transition: opacity 0.6s ease; }
+
+  .intro {
+    position: fixed; inset: 0; z-index: 100;
+    background: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.5s ease;
+  }
+  .intro.hide { opacity: 0; pointer-events: none; }
+
+  .intro-scene {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 40px 90px; text-align: center;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+  }
+  .intro-scene.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+  .intro-icon { font-size: 44px; margin-bottom: 18px; }
+  .intro h2 { font-size: 26px; font-weight: 800; color: #14142a; letter-spacing: -0.02em; margin: 0 0 10px; }
+  .intro p { font-size: 15px; color: #6b6b85; max-width: 300px; line-height: 1.5; margin: 0; }
+
+  .intro-scene.active .i-anim {
+    animation: introReveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .intro-scene.active .intro-icon.i-anim { animation-delay: 0s; }
+  .intro-scene.active h2.i-anim { animation-delay: 0.12s; }
+  .intro-scene.active p.i-anim { animation-delay: 0.24s; }
+  .intro-scene.active .intro-next.i-anim { animation-delay: 0.36s; }
+  @keyframes introReveal {
+    from { opacity: 0; transform: translateY(14px) scale(0.96); filter: blur(6px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+
+  .intro-next {
+    margin-top: 26px; background: #3B5BFF; color: #fff; border: none;
+    border-radius: 12px; padding: 14px 36px; font-size: 14.5px; font-weight: 700;
+    font-family: inherit; cursor: pointer; position: relative; z-index: 5;
+  }
+  .intro-next:active { transform: scale(0.97); }
+
+  .intro-progress { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; pointer-events: none; }
+  .intro-progress .dot { width: 24px; height: 3px; border-radius: 2px; background: rgba(0,0,0,0.08); }
+  .intro-progress .dot.done { background: #3B5BFF; }
+
+  .spotlight {
+    position: fixed; z-index: 90; border-radius: 14px;
+    box-shadow: 0 0 0 9999px rgba(10,10,20,0.55);
+    transition: top 0.4s cubic-bezier(0.16,1,0.3,1), left 0.4s cubic-bezier(0.16,1,0.3,1), width 0.4s cubic-bezier(0.16,1,0.3,1), height 0.4s cubic-bezier(0.16,1,0.3,1);
+    pointer-events: none; display: none;
+  }
+
+  .tour-bubble {
+    position: fixed; z-index: 92; display: none;
+    background: #fff; border-radius: 16px; padding: 16px 18px;
+    box-shadow: 0 12px 34px rgba(0,0,0,0.22);
+    max-width: 260px;
+    opacity: 0; transform: translateY(8px) scale(0.97);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .tour-bubble.show { opacity: 1; transform: translateY(0) scale(1); }
+  .tour-bubble::after {
+    content: ''; position: absolute; width: 14px; height: 14px;
+    background: #fff; transform: rotate(45deg);
+    left: 50%; margin-left: -7px;
+  }
+  .tour-bubble.point-up::after { top: -6px; box-shadow: -3px -3px 4px rgba(0,0,0,0.03); }
+  .tour-bubble.point-down::after { bottom: -6px; box-shadow: 3px 3px 4px rgba(0,0,0,0.03); }
+
+  .tour-text { font-size: 13.5px; color: #24243e; line-height: 1.5; font-weight: 500; }
+  .tour-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .tour-progress { font-size: 11px; color: #a0a0b8; font-weight: 600; }
+  .tour-btns { display: flex; gap: 10px; align-items: center; }
+  .tour-skip { background: none; border: none; color: #a0a0b8; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; padding: 0; }
+  .tour-next { background: #3B5BFF; color: #fff; border: none; border-radius: 9px; padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+
+  .tips-toggle {
+    display: flex; align-items: center; gap: 6px;
+    background: none; border: none; color: #8b8ba3; font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; padding: 0;
+  }
+  .toggle-switch {
+    width: 26px; height: 15px; border-radius: 8px; background: #d8d8e2; position: relative;
+    transition: background 0.2s ease;
+  }
+  .toggle-switch.on { background: #3B5BFF; }
+  .toggle-switch::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px;
+    border-radius: 50%; background: #fff; transition: transform 0.2s ease;
+  }
+  .toggle-switch.on::after { transform: translateX(11px); }
+
+  .confetti-piece { position: absolute; }
+
+  @keyframes statPulse {
+    0% { transform: scale(1); color: #14142a; }
+    45% { transform: scale(1.4); color: #16a34a; }
+    100% { transform: scale(1); color: #14142a; }
+  }
+  .stat-num.pulse { animation: statPulse 0.75s cubic-bezier(0.34, 1.56, 0.64, 1); display: inline-block; }
+</style>
+</head>
+<body>
+
+<div id="dashboard" style="opacity: 0;">
+
+<header>
+  <div class="brand">
+    <h1>LIMN Tracker</h1>
+    <div style="display:flex; align-items:center; gap:14px;">
+      <div class="live-dot" id="liveDot"><div class="pulse"></div><span id="liveText">connecting</span></div>
+      <button class="tips-toggle" onclick="toggleTips()"><div class="toggle-switch on" id="tipsSwitch"></div>Tips</button>
+      <button onclick="playIntro()" style="background:none; border:none; color:#8b8ba3; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; padding:0;">Replay tour</button>
+    </div>
+  </div>
+</header>
+
+<div id="setupWarning" class="setup-warning" style="display:none;">
+  Firebase isn't configured yet. Open this file and fill in the firebaseConfig section near the top with your own Firebase project keys. See the comment block for steps.
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card"><div class="stat-num" id="statWeekCalls">0</div><div class="stat-label">This Week</div></div>
+  <div class="stat-card"><div class="stat-num" id="statWeekCloses">0</div><div class="stat-label">Closes</div></div>
+  <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">All Time</div></div>
+</div>
+
+<div class="bonus-bar" id="bonusBar">Loading...</div>
+
+<button class="add-btn" onclick="openSheet()">+ Log a call</button>
+
+<div class="section-label">Recent activity</div>
+<div class="log-list" id="logList" style="margin: 0 16px;"></div>
+
+</div>
+
+<div class="spotlight" id="spotlight"></div>
+<div class="tour-bubble" id="tourBubble">
+  <div class="tour-text" id="tourText"></div>
+  <div class="tour-footer">
+    <span class="tour-progress" id="tourProgress"></span>
+    <div class="tour-btns">
+      <button class="tour-skip" onclick="endTour(false)">Skip</button>
+      <button class="tour-next" id="tourNextBtn" onclick="nextTourStep()">Next</button>
+    </div>
+  </div>
+</div>
+
+<div class="intro" id="intro">
+  <div class="intro-scene active" data-scene="0">
+    <div class="intro-icon i-anim">👋</div>
+    <h2 class="i-anim">Hello Janette</h2>
+    <button class="intro-next i-anim" onclick="nextIntroScene()">Next</button>
+  </div>
+  <div class="intro-scene" data-scene="1">
+    <div class="intro-icon i-anim">📞</div>
+    <h2 class="i-anim">This is your call tracker</h2>
+    <p class="i-anim">Log every call right after it happens, even the quick no-answers.</p>
+    <button class="intro-next i-anim" onclick="nextIntroScene()">Next</button>
+  </div>
+  <div class="intro-scene" data-scene="2">
+    <div class="intro-icon i-anim">✓</div>
+    <h2 class="i-anim">Add details when it counts</h2>
+    <p class="i-anim">Extra fields only show up when a lead is qualified or closed, so most calls take five seconds to log.</p>
+    <button class="intro-next i-anim" onclick="nextIntroScene()">Next</button>
+  </div>
+  <div class="intro-scene" data-scene="3">
+    <div class="intro-icon i-anim">📈</div>
+    <h2 class="i-anim">Your numbers, live</h2>
+    <p class="i-anim">Stats and residual up top update the moment you save a call. You're set, let's go.</p>
+    <button class="intro-next i-anim" onclick="nextIntroScene()">Get started</button>
+  </div>
+  <div class="intro-progress" id="introProgress"></div>
+</div>
+
+<div class="sheet-overlay" id="overlay" onclick="closeSheet(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-title" id="sheetTitle">Log a call</div>
+
+    <div class="field-label">Business name</div>
+    <input type="text" id="fBusiness" placeholder="e.g. Redd Roofing">
+
+    <div class="field-label">Phone</div>
+    <input type="tel" id="fPhone" placeholder="(801) 555-0123">
+
+    <div class="field-label">Outcome</div>
+    <div class="outcome-grid" id="outcomeGrid">
+      <div class="outcome-btn" data-val="no_answer" onclick="selectOutcome('no_answer')">No answer</div>
+      <div class="outcome-btn" data-val="not_interested" onclick="selectOutcome('not_interested')">Not interested</div>
+      <div class="outcome-btn" data-val="qualified" onclick="selectOutcome('qualified')">Qualified</div>
+      <div class="outcome-btn" data-val="closed" onclick="selectOutcome('closed')">Closed & paid</div>
+    </div>
+
+    <div class="discovery-fields" id="discoveryFields">
+      <div class="field-label">Email</div>
+      <input type="email" id="fEmail" placeholder="client@business.com">
+
+      <div class="field-label">Origin (how'd they start / how long)</div>
+      <textarea id="fOrigin"></textarea>
+
+      <div class="field-label">Services offered</div>
+      <textarea id="fServices"></textarea>
+
+      <div class="field-label">Competitive edge</div>
+      <textarea id="fEdge"></textarea>
+
+      <div class="field-label">Service area</div>
+      <input type="text" id="fArea">
+
+      <div class="field-label">Call-to-action (what they want on inbound calls)</div>
+      <textarea id="fCta"></textarea>
+
+      <div class="field-label">Business hours</div>
+      <input type="text" id="fHours">
+
+      <div class="field-label">Fallback contact number</div>
+      <input type="tel" id="fFallback">
+
+      <div class="field-label">Notes</div>
+      <textarea id="fNotes"></textarea>
+    </div>
+
+    <button class="save-btn" onclick="saveEntry()">Save</button>
+    <button class="cancel-btn" onclick="closeSheet()">Cancel</button>
+    <button class="cancel-btn" id="deleteBtn" onclick="deleteEntry()" style="display:none; color:#dc2626;">Delete this call</button>
+  </div>
+</div>
+
+<script>
+  const introSceneCount = 4;
+  let introScene = 0;
+
+  function buildIntroDots() {
+    const el = document.getElementById('introProgress');
+    el.innerHTML = '';
+    for (let i = 0; i < introSceneCount; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      el.appendChild(d);
+    }
+  }
+
+  function showIntroScene(i) {
+    document.querySelectorAll('.intro-scene').forEach(s => s.classList.remove('active'));
+    document.querySelector('.intro-scene[data-scene="' + i + '"]').classList.add('active');
+    document.querySelectorAll('.intro-progress .dot').forEach((d, idx) => d.classList.toggle('done', idx < i));
+  }
+
+  function nextIntroScene() {
+    if (introScene >= introSceneCount - 1) {
+      finishIntro();
+      return;
+    }
+    introScene += 1;
+    showIntroScene(introScene);
+  }
+
+  function finishIntro() {
+    document.getElementById('intro').classList.add('hide');
+    document.getElementById('dashboard').style.opacity = '1';
+    localStorage.setItem('limn_intro_seen', 'true');
+    setTimeout(() => { document.getElementById('intro').style.display = 'none'; }, 500);
+    setTimeout(startTour, 900);
+  }
+
+  function playIntro() {
+    const intro = document.getElementById('intro');
+    intro.style.display = 'flex';
+    intro.classList.remove('hide');
+    document.getElementById('dashboard').style.opacity = '0';
+    introScene = 0;
+    buildIntroDots();
+    showIntroScene(0);
+  }
+
+  if (localStorage.getItem('limn_intro_seen') === 'true') {
+    document.getElementById('intro').classList.add('hide');
+    document.getElementById('intro').style.display = 'none';
+    document.getElementById('dashboard').style.opacity = '1';
+  } else {
+    buildIntroDots();
+    showIntroScene(0);
+  }
+
+  const tourSteps = [
+    {
+      selector: '.stats-grid',
+      text: "These update live the second you save a call, no need to refresh."
+    },
+    {
+      selector: '#bonusBar',
+      text: "$150 per closed deal, plus $50 every month for each client that stays active. It builds over time."
+    },
+    {
+      selector: '.add-btn',
+      text: "Tap here after every call, even the quick no-answers."
+    },
+    {
+      selector: '#outcomeGrid',
+      text: "Pick an outcome. Detail fields only show up if it's Qualified or Closed, so most calls take five seconds.",
+      onEnter: () => openSheet()
+    }
+  ];
+  let tourIndex = 0;
+
+  function tipsEnabled() {
+    return localStorage.getItem('limn_tips_enabled') !== 'false';
+  }
+
+  function startTour() {
+    if (!tipsEnabled()) return;
+    tourIndex = 0;
+    document.getElementById('spotlight').style.display = 'block';
+    document.getElementById('tourBubble').style.display = 'block';
+    showTourStep(0);
+  }
+
+  function showTourStep(i) {
+    const step = tourSteps[i];
+    if (step.onEnter) step.onEnter();
+    requestAnimationFrame(() => requestAnimationFrame(() => positionTourStep(step)));
+  }
+
+  function positionTourStep(step) {
+    const el = document.querySelector(step.selector);
+    if (!el) { endTour(); return; }
+    const rect = el.getBoundingClientRect();
+
+    const spotlight = document.getElementById('spotlight');
+    spotlight.style.top = (rect.top - 8) + 'px';
+    spotlight.style.left = (rect.left - 8) + 'px';
+    spotlight.style.width = (rect.width + 16) + 'px';
+    spotlight.style.height = (rect.height + 16) + 'px';
+
+    const bubble = document.getElementById('tourBubble');
+    document.getElementById('tourText').textContent = step.text;
+    document.getElementById('tourProgress').textContent = (tourIndex + 1) + ' / ' + tourSteps.length;
+    document.getElementById('tourNextBtn').textContent = tourIndex === tourSteps.length - 1 ? 'Done' : 'Next';
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    let top;
+    if (spaceBelow > 170) {
+      top = rect.bottom + 18;
+      bubble.classList.remove('point-down'); bubble.classList.add('point-up');
+    } else {
+      top = rect.top - 18 - 96;
+      bubble.classList.remove('point-up'); bubble.classList.add('point-down');
+    }
+    bubble.style.top = Math.max(16, top) + 'px';
+    const left = (window.innerWidth - 260) / 2;
+    bubble.style.left = Math.max(16, left) + 'px';
+
+    bubble.classList.add('show');
+  }
+
+  function nextTourStep() {
+    const bubble = document.getElementById('tourBubble');
+    bubble.classList.remove('show');
+    const step = tourSteps[tourIndex];
+    setTimeout(() => {
+      if (step.onExit) step.onExit();
+      tourIndex += 1;
+      if (tourIndex >= tourSteps.length) {
+        endTour(true);
+      } else {
+        showTourStep(tourIndex);
+      }
+    }, 300);
+  }
+
+  function confettiBurst() {
+    const colors = ['#3B5BFF', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'];
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed; inset:0; pointer-events:none; z-index:200; overflow:hidden;';
+    document.body.appendChild(container);
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    for (let i = 0; i < 46; i++) {
+      const piece = document.createElement('div');
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const size = 6 + Math.random() * 7;
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 160 + Math.random() * 260;
+      const endX = Math.cos(angle) * dist;
+      const endY = Math.sin(angle) * dist - 120;
+      piece.className = 'confetti-piece';
+      piece.style.cssText = 'left:' + cx + 'px; top:' + cy + 'px; width:' + size + 'px; height:' + size + 'px; background:' + color + '; border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + '; opacity:1; transform:translate(0,0) rotate(0deg); transition: transform ' + (0.8 + Math.random() * 0.6) + 's cubic-bezier(0.2,0.8,0.2,1), opacity ' + (1 + Math.random() * 0.4) + 's ease;';
+      container.appendChild(piece);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        piece.style.transform = 'translate(' + endX + 'px, ' + endY + 'px) rotate(' + (Math.random() * 720 - 360) + 'deg)';
+        piece.style.opacity = '0';
+      }));
+    }
+    setTimeout(() => container.remove(), 2000);
+  }
+
+  function pulseStats() {
+    document.querySelectorAll('.stat-num').forEach(el => {
+      el.classList.remove('pulse');
+      void el.offsetWidth;
+      el.classList.add('pulse');
+    });
+  }
+
+  function endTour(celebrate) {
+    const bubble = document.getElementById('tourBubble');
+    bubble.classList.remove('show');
+    const step = tourSteps[tourIndex];
+    if (step && step.onExit) step.onExit();
+    if (document.getElementById('overlay').classList.contains('open')) closeSheet();
+    if (celebrate) confettiBurst();
+    setTimeout(() => {
+      document.getElementById('spotlight').style.display = 'none';
+      document.getElementById('tourBubble').style.display = 'none';
+    }, 300);
+  }
+
+  function toggleTips() {
+    const enabled = tipsEnabled();
+    localStorage.setItem('limn_tips_enabled', enabled ? 'false' : 'true');
+    document.getElementById('tipsSwitch').classList.toggle('on', !enabled);
+  }
+
+  document.getElementById('tipsSwitch').classList.toggle('on', tipsEnabled());
+
+  // ============================================================
+  // PASTE YOUR FIREBASE CONFIG HERE — see setup comment at top of file
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyCJ9VoTYzvUcTdhmcLab4W2fTC3rATioZ0",
+    authDomain: "limntracker.firebaseapp.com",
+    projectId: "limntracker",
+    storageBucket: "limntracker.firebasestorage.app",
+    messagingSenderId: "963386664952",
+    appId: "1:963386664952:web:fce7e627e8bc487db9980d"
+  };
+  // ============================================================
+
+  let db = null;
+  let entries = [];
+  let selectedOutcome = null;
+  const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+  if (isConfigured && typeof firebase === 'undefined') {
+    document.getElementById('setupWarning').style.display = 'block';
+    document.getElementById('setupWarning').textContent = "Firebase's script failed to load, probably blocked by an ad blocker or privacy extension. Try disabling extensions or opening in a private/incognito window.";
+    document.getElementById('liveText').textContent = 'blocked';
+    document.getElementById('liveDot').querySelector('.pulse').style.background = '#f87171';
+  } else if (isConfigured) {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    document.getElementById('setupWarning').style.display = 'none';
+    listenToEntries();
+  } else {
+    document.getElementById('setupWarning').style.display = 'block';
+    document.getElementById('liveText').textContent = 'not configured';
+    document.getElementById('liveDot').querySelector('.pulse').style.background = '#f87171';
+    render();
+  }
+
+  function listenToEntries() {
+    db.collection('calls').orderBy('date', 'desc').onSnapshot((snapshot) => {
+      entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      document.getElementById('liveText').textContent = 'live';
+      render();
+    }, (err) => {
+      document.getElementById('liveText').textContent = 'error';
+      console.error(err);
+    });
+  }
+
+  let editingId = null;
+
+  function openSheet(entry) {
+    document.getElementById('overlay').classList.add('open');
+    editingId = entry ? entry.id : null;
+    document.getElementById('sheetTitle').textContent = entry ? 'Edit call' : 'Log a call';
+    document.getElementById('deleteBtn').style.display = entry ? 'block' : 'none';
+
+    selectedOutcome = entry ? entry.outcome : null;
+    document.querySelectorAll('.outcome-btn').forEach(b => {
+      const match = entry && b.dataset.val === entry.outcome;
+      b.classList.toggle('selected', match);
+      b.classList.toggle(b.dataset.val, match);
+    });
+    document.getElementById('discoveryFields').classList.toggle('show', entry && (entry.outcome === 'qualified' || entry.outcome === 'closed'));
+
+    document.getElementById('fBusiness').value = entry ? entry.business || '' : '';
+    document.getElementById('fPhone').value = entry ? entry.phone || '' : '';
+    ['fEmail','fOrigin','fServices','fEdge','fArea','fCta','fHours','fFallback','fNotes'].forEach(id => {
+      const key = id.slice(1).charAt(0).toLowerCase() + id.slice(2);
+      document.getElementById(id).value = entry ? (entry[key] || '') : '';
+    });
+  }
+
+  function editEntry(id) {
+    const entry = entries.find(e => e.id === id);
+    if (entry) openSheet(entry);
+  }
+
+  async function deleteEntry() {
+    if (!editingId) return;
+    if (!confirm('Delete this call? This can\'t be undone.')) return;
+    if (isConfigured) {
+      await db.collection('calls').doc(editingId).delete();
+    } else {
+      entries = entries.filter(e => e.id !== editingId);
+      render();
+    }
+    closeSheet();
+  }
+
+  function closeSheet() {
+    document.getElementById('overlay').classList.remove('open');
+    editingId = null;
+  }
+
+  function selectOutcome(val) {
+    selectedOutcome = val;
+    document.querySelectorAll('.outcome-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.val === val);
+      b.classList.toggle(val, b.dataset.val === val);
+    });
+    const showDetail = val === 'qualified' || val === 'closed';
+    document.getElementById('discoveryFields').classList.toggle('show', showDetail);
+  }
+
+  async function saveEntry() {
+    const business = document.getElementById('fBusiness').value.trim();
+    if (!business || !selectedOutcome) {
+      alert('Add a business name and pick an outcome first.');
+      return;
+    }
+    const original = editingId ? entries.find(e => e.id === editingId) : null;
+    const entry = {
+      date: original ? original.date : new Date().toISOString(),
+      business,
+      phone: document.getElementById('fPhone').value.trim(),
+      outcome: selectedOutcome,
+      email: document.getElementById('fEmail').value.trim(),
+      origin: document.getElementById('fOrigin').value.trim(),
+      services: document.getElementById('fServices').value.trim(),
+      edge: document.getElementById('fEdge').value.trim(),
+      area: document.getElementById('fArea').value.trim(),
+      cta: document.getElementById('fCta').value.trim(),
+      hours: document.getElementById('fHours').value.trim(),
+      fallback: document.getElementById('fFallback').value.trim(),
+      notes: document.getElementById('fNotes').value.trim(),
+    };
+
+    if (isConfigured) {
+      if (editingId) {
+        await db.collection('calls').doc(editingId).update(entry);
+      } else {
+        await db.collection('calls').add(entry);
+      }
+    } else {
+      if (editingId) {
+        const idx = entries.findIndex(e => e.id === editingId);
+        if (idx > -1) entries[idx] = { ...entries[idx], ...entry };
+      } else {
+        entry.id = 'local-' + Date.now();
+        entries.unshift(entry);
+      }
+      render();
+    }
+    pulseStats();
+    closeSheet();
+  }
+
+  function getWeekStart() {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diff);
+    monday.setHours(0,0,0,0);
+    return monday;
+  }
+
+  function outcomeLabel(o) {
+    return { no_answer: 'No answer', not_interested: 'Not interested', qualified: 'Qualified', closed: 'Closed & paid' }[o] || o;
+  }
+
+  function initials(name) {
+    return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  }
+
+  function statusIcon(o) {
+    return { no_answer: '−', not_interested: '×', qualified: '★', closed: '✓' }[o] || '·';
+  }
+
+  function render() {
+    const weekStart = getWeekStart();
+    const weekEntries = entries.filter(e => new Date(e.date) >= weekStart);
+    const weekCloses = weekEntries.filter(e => e.outcome === 'closed').length;
+    const totalCloses = entries.filter(e => e.outcome === 'closed').length;
+
+    document.getElementById('statWeekCalls').textContent = weekEntries.length;
+    document.getElementById('statWeekCloses').textContent = weekCloses;
+    document.getElementById('statTotal').textContent = totalCloses;
+
+    const activeClients = totalCloses;
+    const bonusBar = document.getElementById('bonusBar');
+    bonusBar.className = 'bonus-bar';
+    bonusBar.textContent = totalCloses + ' active client' + (totalCloses === 1 ? '' : 's') + ' → $' + (activeClients * 50) + '/mo in residual, plus $150 per new close';
+
+    const list = document.getElementById('logList');
+    if (entries.length === 0) {
+      list.innerHTML = '<div class="empty">No calls logged yet.<br>Tap "Log a call" to start.</div>';
+      return;
+    }
+    list.innerHTML = entries.map(e => {
+      const d = new Date(e.date);
+      const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      let detail = '';
+      if (e.outcome === 'qualified' || e.outcome === 'closed') {
+        const parts = [];
+        if (e.area) parts.push('Area: ' + e.area);
+        if (e.hours) parts.push('Hours: ' + e.hours);
+        if (e.notes) parts.push(e.notes);
+        detail = parts.length ? '<div class="log-detail">' + parts.join(' · ') + '</div>' : '';
+      }
+      return `<div class="log-item" onclick="editEntry('${e.id}')">
+        <div class="avatar">${initials(e.business)}</div>
+        <div class="log-body">
+          <div class="log-top">
+            <div class="log-name">${e.business}</div>
+            <div class="log-date">${dateStr}</div>
+          </div>
+          <div class="log-meta">${e.phone || 'no number'}</div>
+          <div class="status-row ${e.outcome}">
+            <div class="status-icon">${statusIcon(e.outcome)}</div>
+            <div class="status-label">${outcomeLabel(e.outcome)}</div>
+          </div>
+          ${detail}
+        </div>
+        <div class="log-chevron">›</div>
+      </div>`;
+    }).join('');
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>LIMN Onboarding Cheatsheet</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 0;
+    background: #0d0d14;
+    color: #e8e8ec;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: 60px;
+  }
+  header {
+    padding: 24px 20px 16px;
+    position: sticky; top: 0; z-index: 10;
+    background: #0d0d14;
+    border-bottom: 1px solid #22222e;
+  }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+  header p { margin: 4px 0 0; font-size: 13px; color: #8888a0; }
+
+  .tabs {
+    display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto;
+    border-bottom: 1px solid #22222e;
+  }
+  .tab {
+    flex: none; padding: 8px 14px; border-radius: 20px;
+    background: #1a1a26; color: #aaaabf; font-size: 13px; font-weight: 600;
+    border: 1px solid #2a2a3a; white-space: nowrap;
+  }
+  .tab.active { background: #3B5BFF; color: #fff; border-color: #3B5BFF; }
+
+  section { padding: 16px; display: none; }
+  section.active { display: block; }
+
+  .pricing-card {
+    background: #16161f; border: 1px solid #22222e; border-radius: 14px;
+    padding: 16px; margin-bottom: 12px;
+  }
+  .pricing-card.selected { border-color: #3B5BFF; background: #171d33; }
+  .pricing-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .tier-name { font-size: 17px; font-weight: 700; color: #fff; }
+  .tier-price { font-size: 15px; color: #6b8cff; font-weight: 600; }
+  .tier-fits { font-size: 13px; color: #9999ad; margin-top: 6px; line-height: 1.4; }
+  .tier-note { font-size: 11px; color: #666677; margin-top: 12px; text-align: center; }
+
+  .group-title {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: #6b8cff; margin: 20px 0 10px;
+  }
+  .group-title:first-child { margin-top: 0; }
+
+  .item {
+    padding: 12px 4px; border-bottom: 1px solid #1a1a26;
+  }
+  .item-row {
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .check {
+    flex: none; width: 22px; height: 22px; border-radius: 6px;
+    border: 2px solid #3a3a4d; margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: transparent;
+  }
+  .item.done .check { background: #3B5BFF; border-color: #3B5BFF; color: #fff; }
+  .item.done .label { color: #666677; text-decoration: line-through; }
+  .label { font-size: 15px; line-height: 1.4; color: #e0e0e8; }
+  .note {
+    display: block; width: 100%; margin: 8px 0 0 34px;
+    max-width: calc(100% - 34px);
+    background: #14141d; border: 1px solid #22222e; border-radius: 8px;
+    padding: 8px 10px; font-size: 13px; line-height: 1.4;
+    color: #d0d0da; font-family: inherit;
+    resize: vertical; min-height: 34px;
+  }
+  .note::placeholder { color: #55556a; }
+  .note:focus { outline: none; border-color: #3B5BFF; background: #171d33; }
+
+  .progress-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #0d0d14; border-top: 1px solid #22222e;
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .progress-track { flex: 1; height: 6px; background: #1a1a26; border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #3B5BFF; width: 0%; transition: width 0.2s; }
+  .progress-text { font-size: 12px; color: #8888a0; white-space: nowrap; }
+
+  .close-note {
+    background: #171d33; border: 1px solid #2a3a6b; border-radius: 12px;
+    padding: 14px; font-size: 13px; color: #b0c0f0; line-height: 1.5; margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LIMN — Onboarding Call</h1>
+  <p>Tap through live during the call</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="pricing">Pricing</div>
+  <div class="tab" data-tab="basics">Basics</div>
+  <div class="tab" data-tab="volume">Volume</div>
+  <div class="tab" data-tab="services">Services</div>
+  <div class="tab" data-tab="routing">Routing</div>
+  <div class="tab" data-tab="close">Close</div>
+</div>
+
+<section id="pricing" class="active">
+  <div class="pricing-card" data-tier="base">
+    <div class="pricing-top"><span class="tier-name">Base</span><span class="tier-price">$500 · $300/mo</span></div>
+    <div class="tier-fits">1 location, no calendar integration, standard script, low call volume</div>
+  </div>
+  <div class="pricing-card" data-tier="standard">
+    <div class="pricing-top"><span class="tier-name">Standard</span><span class="tier-price">$750 · $400/mo</span></div>
+    <div class="tier-fits">1 location, calendar booking integration, custom FAQs, moderate call volume</div>
+  </div>
+  <div class="pricing-card" data-tier="premium">
+    <div class="pricing-top"><span class="tier-name">Premium</span><span class="tier-price">$1,000 · $500/mo</span></div>
+    <div class="tier-fits">Multi-location or custom routing, multiple integrations, high call volume</div>
+  </div>
+  <div class="tier-note">Tap a card to mark selected · All plans month-to-month, 30-day cancellation notice</div>
+</section>
+
+<section id="basics">
+  <div class="group-title">Business Basics</div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Business name (confirm spelling) and main phone number</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">How many locations?</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Business hours — including weekends/holidays if relevant</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+</section>
+
+<section id="volume">
+  <div class="group-title">Call Volume &amp; Pain Point</div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Roughly how many calls per day/week?</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">How many are currently missed or going to voicemail?</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Any answering service or front desk right now?</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+</section>
+
+<section id="services">
+  <div class="group-title">Services &amp; FAQs</div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">What services do you offer? (full list — becomes the AI's knowledge base)</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">What do you NOT do, that people commonly ask about?</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Any pricing info OK to share? (e.g. "service calls start at $X")</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Most common questions customers ask when calling</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+</section>
+
+<section id="routing">
+  <div class="group-title">Booking &amp; Routing</div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Already using Calendly, Cal.com, or another calendar tool?</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">If not, want one set up as part of this?</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Who should the AI transfer to for a human? (name + number)</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Any calls that should NEVER go to AI? (emergencies, existing customers)</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+</section>
+
+<section id="close">
+  <div class="group-title">Pricing &amp; Close</div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Confirm tier based on answers above</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">State exact setup fee + monthly out loud, confirm they're good with it</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Explain: Stripe link goes out after this call, work starts once paid</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="item"><div class="item-row"><div class="check">✓</div><div class="label">Set expectation: how many days until they're live</div></div><textarea class="note" placeholder="Notes..." rows="1"></textarea></div>
+  <div class="close-note">After the call: send Stripe link → once paid, begin the 4-step setup (Integration Strategy → Knowledge Hub → Live Simulation → Go Live).</div>
+</section>
+
+<div class="progress-bar">
+  <div class="progress-track"><div class="progress-fill" id="fill"></div></div>
+  <div class="progress-text" id="progressText">0 / 17</div>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const sections = document.querySelectorAll('section');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      sections.forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.item-row').forEach(row => {
+    row.addEventListener('click', () => {
+      row.closest('.item').classList.toggle('done');
+      updateProgress();
+    });
+  });
+
+  document.querySelectorAll('.note').forEach(note => {
+    note.addEventListener('click', e => e.stopPropagation());
+  });
+
+  document.querySelectorAll('.pricing-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.pricing-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+  });
+
+  function updateProgress() {
+    const total = document.querySelectorAll('.item').length;
+    const done = document.querySelectorAll('.item.done').length;
+    document.getElementById('fill').style.width = (done / total * 100) + '%';
+    document.getElementById('progressText').textContent = done + ' / ' + total;
+  }
+</script>
+
+</body>
+</html>
