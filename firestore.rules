@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
+    // A "member" is a signed-in user whose profile was created with a valid invite code.
+    function isMember() { return signedIn() && exists(userPath(request.auth.uid)); }
+
+    // Invite codes: add/remove them by hand in the Firebase console (doc ID = the code).
+    // `get` lets the signup screen check one exact code; nobody can list them.
+    match /inviteCodes/{code} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isMember();
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['username', 'inviteCode', 'createdAt'])
+        && request.resource.data.inviteCode is string
+        && exists(/databases/$(database)/documents/inviteCodes/$(request.resource.data.inviteCode))
+        && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid;
+      allow update, delete: if false;
+    }
+
+    // Reserves each username for exactly one account (create fails if it already exists).
+    match /usernames/{name} {
+      allow read: if isMember();
+      allow create: if signedIn()
+        && name.matches('^[a-z0-9_]{3,20}$')
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && existsAfter(userPath(request.auth.uid));
+      allow update, delete: if false;
+    }
+
+    // Shared status + notes per lead, visible to every member on every device.
+    match /leadNotes/{leadId} {
+      allow read, write: if isMember();
+    }
+
+    // Businesses your pipeline files. Members can read; writes stay with the pipeline.
+    // If your pipeline uses the Admin SDK it bypasses these rules. If it uses the
+    // regular web/client SDK, keep whatever write rule it relies on today instead of `false`.
+    match /businesses/{id} {
+      allow read: if isMember();
+      allow write: if false;
+    }
+  }
+}
